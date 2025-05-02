@@ -1,0 +1,66 @@
+{
+    "sessions": {
+      "priya.sharma@example.com": {
+        "preferences": {
+          "role": "Software Engineer",
+          "location": "Bangalore"
+        },
+        "history": [
+          {
+            "message": "job search",
+            "response": "Great! I can help with job searches. Please tell me your preferences (e.g., role, location).",
+            "timestamp": "2025-04-23T09:30:00Z"
+          },
+          {
+            "message": "role Software Engineer",
+            "response": "Got it! You’re interested in a Software Engineer role. What location do you prefer?",
+            "timestamp": "2025-04-23T09:31:00Z"
+          },
+          {
+            "message": "location Bangalore",
+            "response": "I found 1 job(s) matching your preferences:\n- Software Engineer at TechCorp in Bangalore: Develop web applications using React and Node.js\n",
+            "timestamp": "2025-04-23T09:32:00Z"
+          }
+        ],
+        "timestamp": "2025-04-23T09:32:00Z"
+      },
+      "anita.verma@example.com": {
+        "preferences": {
+          "role": "Data Analyst",
+          "location": "Hyderabad"
+        },
+        "history": [
+          {
+            "message": "job search",
+            "response": "Great! I can help with job searches. Please tell me your preferences (e.g., role, location).",
+            "timestamp": "2025-04-23T10:15:00Z"
+          },
+          {
+            "message": "role Data Analyst",
+            "response": "Got it! You’re interested in a Data Analyst role. What location do you prefer?",
+            "timestamp": "2025-04-23T10:16:00Z"
+          },
+          {
+            "message": "location Hyderabad",
+            "response": "I found 1 job(s) matching your preferences:\n- Data Analyst at DataSolutions in Hyderabad: Analyze data trends and create reports\n",
+            "timestamp": "2025-04-23T10:17:00Z"
+          }
+        ],
+        "timestamp": "2025-04-23T10:17:00Z"
+      },
+      "anonymous": {
+        "preferences": {
+          "role": "",
+          "location": ""
+        },
+        "history": [
+          {
+            "message": "hello",
+            "response": "Hello! How can Asha assist you today?",
+            "timestamp": "2025-04-23T11:54:00Z"
+          }
+        ],
+        "timestamp": "2025-04-23T11:54:00Z"
+      }
+    }
+  }

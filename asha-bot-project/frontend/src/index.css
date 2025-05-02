@@ -1,0 +1,170 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f9;
+  text-align: center;
+  position: relative;
+}
+nav {
+  padding: 20px;
+  background-color: #2c3e50;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.logo {
+  height: 40px;
+  margin-right: 5px;
+}
+nav .left-section {
+  display: flex;
+  align-items: center;
+}
+nav .left-section a:first-child {
+  margin-left: 0;
+}
+nav .left-section a {
+  margin-left: 20px;
+  text-decoration: none;
+  color: #ecf0f1;
+}
+nav .middle-section a {
+  margin: 0 15px;
+  text-decoration: none;
+  color: #ecf0f1;
+}
+nav .right-section a {
+  margin-left: 15px;
+  text-decoration: none;
+  color: #ecf0f1;
+}
+.content {
+  padding: 50px;
+}
+h1 {
+  color: #e74c3c;
+  font-size: 2.5em;
+}
+p {
+  color: #34495e;
+  font-size: 1.2em;
+  max-width: 800px;
+  margin: 20px auto;
+}
+a.cta-button {
+  padding: 10px 20px;
+  background-color: #e74c3c;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+}
+.footer {
+  padding: 30px;
+  background-color: #8eb9e3;
+  color: #000000;
+  font-weight: bold;
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.footer p {
+  margin: 0 10px;
+  font-size: 1.1em;
+}
+.signup-container, .login-container {
+  margin: 20px;
+  padding: 20px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.signup-container h2, .login-container h2 {
+  color: #2c3e50;
+  margin-top: 0;
+}
+.signup-container p, .login-container p {
+  color: #7f8c8d;
+  font-size: 0.9em;
+  margin: 10px 0;
+}
+.signup-container input, .login-container input {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 25px;
+  font-size: 1em;
+  box-sizing: border-box;
+}
+.social-button, .continue-button, .login-button, .google-button {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ddd;
+  border-radius: 25px;
+  background-color: #fff;
+  color: #2c3e50;
+  font-size: 1em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.continue-button {
+  background-color: #3498db;
+  color: white;
+}
+.login-button {
+  background-color: #3498db;
+  color: white;
+}
+.google-button {
+  background-color: #4285f4;
+  color: white;
+}
+.show-button {
+  padding: 5px 10px;
+  background: none;
+  border: none;
+  color: #3498db;
+  cursor: pointer;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.forgot-password {
+  color: #3498db;
+  text-decoration: none;
+  font-size: 0.9em;
+  display: block;
+  margin: 5px 0;
+}
+.chat-bot-icon {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 50px;
+  height: 50px;
+  background-color: #e74c3c;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
