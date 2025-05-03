@@ -1,0 +1,25 @@
+type nul > requirements.txt  # Clear existing file
+type requirements.txt > temp.txt
+echo unstructured==0.15.0>> temp.txt
+echo python-magic-bin==0.4.14>> temp.txt
+echo sentence-transformers==3.2.1>> temp.txt
+echo langchain-huggingface==0.1.0>> temp.txt
+echo google-generativeai==0.7.2>> requirements.txt
+echo langchain==0.2.16>> requirements.txt
+echo langchain-community==0.2.17>> requirements.txt
+echo chromadb==0.5.3>> requirements.txt
+echo gradio==3.50.2>> requirements.txt
+echo tiktoken==0.5.2>> requirements.txt
+echo tavily-python==0.4.0>> requirements.txt
+echo python-dotenv==1.0.0>> requirements.txt
+echo nltk==3.8.1>> requirements.txt
+echo textblob==0.17.1>> requirements.txt
+echo gunicorn==20.1.0>> requirements.txt
+echo Faker==37.1.0>> requirements.txt
+echo numpy==1.26.4>> requirements.txt
+echo pandas==2.2.3>> requirements.txt
+echo python-dateutil==2.9.0.post0>> requirements.txt
+echo pytz==2025.2>> requirements.txt
+echo six==1.17.0>> requirements.txt
+echo tzdata==2025.2>> requirements.txt
+move /Y temp.txt requirements.txt
