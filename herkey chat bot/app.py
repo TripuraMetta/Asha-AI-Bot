@@ -1,33 +1,9 @@
-# app.py
 import os
 import gradio as gr
-from dotenv import load_dotenv
-from db import save_user_data, save_session_data, get_session_data
-from nlp import detect_intent
-from monitor import log_interaction
-from knowledge_base import setup_knowledge_base, query_knowledge_base
-from tavily import TavilyClient
 import pandas as pd
 import json
 import uuid
-import sys
-import subprocess
-import os
-
-from langchain_community.document_loaders import UnstructuredFileLoader
 from cryptography.fernet import Fernet
-
-
-if 'DETACHED_PROCESS' not in os.environ:
-    # Relaunch the script in a detached process
-    subprocess.Popen(
-        [sys.executable, __file__],
-        env={**os.environ, 'DETACHED_PROCESS': '1'},
-        creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    sys.exit(0)  # Exit the current process
 
 # Generate and load encryption key
 if not os.path.exists("secret.key"):
@@ -38,42 +14,57 @@ with open("secret.key", "rb") as key_file:
     key = key_file.read()
 cipher = Fernet(key)
 
+# User Management
 def load_users():
     if os.path.exists("users.json"):
-        with open("users.json", "rb") as f:
-            encrypted_data = f.read()
-        decrypted_data = cipher.decrypt(encrypted_data)
-        return json.loads(decrypted_data.decode())
+        try:
+            with open("users.json", "rb") as f:
+                encrypted_data = f.read()
+            decrypted_data = cipher.decrypt(encrypted_data)
+            return json.loads(decrypted_data.decode())
+        except Exception as e:
+            print(f"Error loading users: {str(e)}")
+            return {}
     return {}
 
 def save_users(users):
-    data = json.dumps(users).encode()
-    encrypted_data = cipher.encrypt(data)
-    with open("users.json", "wb") as f:
-        f.write(encrypted_data)
+    try:
+        data = json.dumps(users).encode()
+        encrypted_data = cipher.encrypt(data)
+        with open("users.json", "wb") as f:
+            f.write(encrypted_data)
+    except Exception as e:
+        print(f"Error saving users: {str(e)}")
 
-load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
-vectorstore = setup_knowledge_base()  # Cached globally
-tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+# Intent Detection
+def detect_intent(query):
+    query_lower = query.lower()
+    if "job" in query_lower and ("role" in query_lower or "location" in query_lower):
+        role = None
+        location = None
+        words = query_lower.split()
+        for i, word in enumerate(words):
+            if word == "role" and i + 1 < len(words):
+                role = words[i + 1]
+            if word == "location" and i + 1 < len(words):
+                location = words[i + 1]
+        return "job_search", {"role": role, "location": location}
+    if "session" in query_lower or "event" in query_lower:
+        return "session_details", {}
+    if "what" in query_lower or "how" in query_lower:
+        return "faq_query", {}
+    return None, {}
 
-USERS_FILE = "users.json"
-
-def load_users():
-    if os.path.exists(USERS_FILE):
-        with open(USERS_FILE, "r") as f:
-            return json.load(f)
-    return {}
-
-def save_users(users):
-    with open(USERS_FILE, "w") as f:
-        json.dump(users, f)
-
+# Data Query Functions
 def search_jobs(role, location):
     try:
+        if not os.path.exists("job_listings.csv"):
+            return "Error: job_listings.csv file not found."
         df = pd.read_csv("job_listings.csv")
-        query = df[["Job ID", "Job Title", "Company", "Location", "Job Type", "Apply Link"]]
+        required_columns = ["Job ID", "Job Title", "Company", "Location", "Job Type", "Apply Link"]
+        if not all(col in df.columns for col in required_columns):
+            return f"Error: job_listings.csv is missing required columns. Expected: {required_columns}"
+        query = df[required_columns]
         if role:
             query = query[query['Job Title'].str.contains(role, case=False, na=False)]
         if location:
@@ -82,29 +73,35 @@ def search_jobs(role, location):
     except Exception as e:
         return f"Error searching jobs: {str(e)}"
 
-def get_session_history(query):
+def get_session_details(query):
     try:
+        if not os.path.exists("Session_details.json"):
+            return "Error: Session_details.json file not found."
         with open("Session_details.json", "r") as f:
             sessions = json.load(f)
+        required_fields = ["title", "date", "time", "location", "registration_link", "description"]
+        for session in sessions:
+            if not all(field in session for field in required_fields):
+                return f"Error: Session_details.json entries are missing required fields. Expected: {required_fields}"
         query_lower = query.lower()
         relevant_sessions = []
         for session in sessions:
             if any(keyword in query_lower for keyword in [session["title"].lower(), session["description"].lower()]):
-                relevant_sessions.append(f"Session: {session['title']}\nDate: {session['date']} {session['time']}\nLocation: {session['location']}\nLink: {session['registration_link']}\nDescription: {session['description']}")
+                relevant_sessions.append(
+                    f"Session: {session['title']}\n"
+                    f"Date: {session['date']} {session['time']}\n"
+                    f"Location: {session['location']}\n"
+                    f"Link: {session['registration_link']}\n"
+                    f"Description: {session['description']}"
+                )
         return "\n\n".join(relevant_sessions) if relevant_sessions else "No session details found."
     except Exception as e:
-        return f"Error retrieving session history: {str(e)}"
+        return f"Error retrieving session details: {str(e)}"
 
-def process_uploaded_file(file_path):
+def search_faq(query):
     try:
-        loader = UnstructuredFileLoader(file_path)
-        docs = loader.load()
-        return "\n".join([doc.page_content for doc in docs]) if docs else "No content extracted from the file."
-    except Exception as e:
-        return f"Error processing file: {str(e)}"
-
-def direct_faq_search(query):
-    try:
+        if not os.path.exists("docs/faqs.txt"):
+            return "Error: docs/faqs.txt file not found."
         with open("docs/faqs.txt", "r") as f:
             lines = f.readlines()
         query_lower = query.lower()
@@ -112,35 +109,33 @@ def direct_faq_search(query):
             if line.strip():
                 question, answer = line.split("?", 1)
                 if query_lower in question.lower():
-                    print(f"Direct match found: Query: {query}, Answer: {answer.strip()}")
                     return answer.strip()
-        print(f"No direct match found in faqs.txt for: {query}")
         return None
     except Exception as e:
-        print(f"Error reading faqs.txt: {str(e)}")
-        return None
+        return f"Error reading faqs.txt: {str(e)}"
 
-# app.py (replace the chatbot_response function)
-# app.py (replace the chatbot_response function)
-def chatbot_response(username, query, uploaded_file, session_id=None):
+# Chatbot Response Logic
+def chatbot_response(username, query, session_id=None):
     session_id = session_id or str(uuid.uuid4())
-    email = f"{username}@example.com"
-    sanitized_query = query.strip()[:1000]
-    save_user_data(username, email, sanitized_query)
     users = load_users()
-    users[username]["chats"].append({"id": session_id, "query": sanitized_query, "response": ""})
+    if username not in users:
+        return "Error: User not found. Please log in again.", session_id, []
+
+    # Initialize chat history
+    if "chats" not in users[username]:
+        users[username]["chats"] = []
+    users[username]["chats"].append({"id": session_id, "query": query, "response": ""})
     save_users(users)
 
-    # Content moderation check
+    query_lower = query.lower()
+    response = ""
+
+    # Content Moderation
     moderation_keywords = ["hate", "abuse", "violence", "discrimination"]
-    if any(keyword in sanitized_query.lower() for keyword in moderation_keywords):
+    if any(keyword in query_lower for keyword in moderation_keywords):
         response = "Sorry, this content is not appropriate. Please ask something else."
     else:
-        file_response = process_uploaded_file(uploaded_file.name) if uploaded_file else ""
-
-        query_lower = sanitized_query.lower()
-
-        # Bias detection with varied responses
+        # Bias Detection
         biased_keywords = ["suitable", "better", "good at", "capable", "should", "can", "are", "not good", "not suited", "only men"]
         is_biased = any(keyword in query_lower for keyword in biased_keywords) and ("women" in query_lower or "female" in query_lower)
 
@@ -154,53 +149,43 @@ def chatbot_response(username, query, uploaded_file, session_id=None):
             else:
                 response = "Let’s focus on empowerment! Women have achieved remarkable success across industries. Explore job opportunities, mentorship, or women’s leadership stories?"
         else:
-            intent, params = detect_intent(sanitized_query)
-            if not query.strip() and not uploaded_file:
-                response = f"Hi {username}! Please ask something or upload a file."
+            # Basic Responses
+            if not query.strip():
+                response = f"Hi {username}! Please ask something."
             elif "thank" in query_lower or "thanks" in query_lower:
                 response = f"You're welcome, {username}! Anything else I can help with?"
             elif "bye" in query_lower or "goodbye" in query_lower:
-                response = f"Bye, {username}! Come back if you need help."
+                response = f"Goodbye, {username}! Come back if you need help."
             elif "hi" in query_lower or "hello" in query_lower:
                 response = f"Hi {username}! How can I help you?"
-            elif intent == "job_search":
-                role = params.get("role")
-                location = params.get("location")
-                if role or location:
-                    response = search_jobs(role, location)
-                else:
-                    response = "Please specify a role (e.g., developer) and/or location (e.g., Bangalore) for job search."
-            elif intent == "internet_search":
-                try:
-                    results = tavily_client.search(params.get("query", sanitized_query))
-                    response = "\n".join([r["content"][:200] for r in results["results"][:3]])
-                except Exception as e:
-                    response = f"Internet search error: {str(e)}"
-            elif intent == "session_details":
-                response = get_session_history(sanitized_query)
-            elif intent == "faq_query":
-                response = direct_faq_search(sanitized_query)
-                if not response:
-                    response = "I couldn’t find an answer for that. Please try a different question or check the FAQs."
-            elif "women empowerment" in query_lower or "women career" in query_lower:
-                try:
-                    results = tavily_client.search("global women empowerment initiatives")
-                    response = "Here are some insights on women empowerment:\n" + "\n".join([r["content"][:200] for r in results["results"][:2]])
-                except Exception as e:
-                    response = f"Error fetching women empowerment insights: {str(e)}"
             else:
-                response = "I don’t understand. Please ask about jobs, sessions, or use specific questions like 'What is HerKey?'"
+                # Intent-Based Responses
+                intent, params = detect_intent(query)
+                if intent == "job_search":
+                    role = params.get("role")
+                    location = params.get("location")
+                    if role or location:
+                        response = search_jobs(role, location)
+                    else:
+                        response = "Please specify a role (e.g., developer) and/or location (e.g., Bangalore) for job search."
+                elif intent == "session_details":
+                    response = get_session_details(query)
+                elif intent == "faq_query":
+                    faq_response = search_faq(query)
+                    response = faq_response if faq_response else "I couldn’t find an answer for that. Please try a different question or check the FAQs."
+                else:
+                    response = "I don’t understand. Please ask about jobs, sessions, or use specific questions like 'What is HerKey?'"
 
-    response = f"{file_response}\n{response}" if file_response else response
+    # Update chat history with response
     for chat in users[username]["chats"]:
         if chat["id"] == session_id:
             chat["response"] = response
     save_users(users)
-    save_session_data(session_id, email, sanitized_query, response)
-    log_interaction(email, sanitized_query, response)
-    return response, session_id
 
+    chat_history = users[username]["chats"]
+    return response, session_id, chat_history
 
+# Gradio Interface
 def create_interface():
     with gr.Blocks(title="HerKEY Chatbot") as iface:
         # Login/Signup Page
@@ -216,35 +201,26 @@ def create_interface():
             logged_in = gr.State(False)
             current_user = gr.State(None)
 
-        # Main Chat Interface
+        # Chat Interface
         with gr.Row(visible=False) as chat_interface:
             with gr.Column(scale=2, min_width=200) as sidebar:
                 gr.Markdown("### History")
                 chat_history = gr.State([])
-                chat_list = gr.components.HTML(value="", label="Chats")
-                def update_history(username):
-                    users = load_users()
-                    chats = users.get(username, {}).get("chats", [])
-                    html = "<ul>" + "".join(f"<li>{c['query'][:20]}...</li>" for c in chats) + "</ul>"
-                    return gr.update(value=html)
-                current_user.change(fn=update_history, inputs=[current_user], outputs=[chat_list])
+                chat_list = gr.HTML(value="", label="Chats")
+                def update_history(history):
+                    html = "<ul>" + "".join(f"<li>{chat['query'][:20]}...</li>" for chat in history) + "</ul>"
+                    return html
+                chat_history.change(fn=update_history, inputs=[chat_history], outputs=[chat_list])
 
             with gr.Column(scale=8):
                 user_icon = gr.Markdown(visible=False)
                 greeting = gr.Markdown(visible=False)
                 with gr.Row():
                     ask_box = gr.Textbox(label="Ask anything", placeholder="Type your question here...", show_label=False, container=False)
-                    # Arrow button for submission
                     arrow_button = gr.Button("➡️", elem_classes="arrow-button")
-                with gr.Row():
-                    file_upload = gr.UploadButton("📄", file_types=[".txt", ".pdf", ".docx"])
-                    # Placeholder for search and voice (not implemented yet)
-                    gr.Button("🌐", elem_classes="small-button")
-                    gr.Button("🎙️", elem_classes="small-button")
                 output = gr.Textbox(label="Response")
                 session_id = gr.State()
 
-                # CSS to style the arrow button
                 css = """
                 .arrow-button {
                     background-color: #10a37f;
@@ -258,21 +234,11 @@ def create_interface():
                     font-size: 20px;
                     padding: 0;
                 }
-                .small-button {
-                    background-color: #f0f0f0;
-                    border-radius: 50%;
-                    width: 30px;
-                    height: 30px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 16px;
-                    padding: 0;
-                    margin-left: 5px;
-                }
                 """
 
                 def login(username_input, password_input):
+                    if not username_input or not password_input:
+                        return gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), None, gr.update(value="Username and password cannot be empty.")
                     users = load_users()
                     if username_input in users and users[username_input]["password"] == password_input:
                         icon = f"<div style='background-color: #10a37f; color: white; width: 40px; height: 40px; border-radius: 50%; text-align: center; line-height: 40px;'>{username_input[0].upper()}</div>"
@@ -280,12 +246,14 @@ def create_interface():
                     return gr.update(visible=True), gr.update(visible=False), gr.update(visible=False), gr.update(visible=False), None, gr.update(value="Invalid username or password.")
 
                 def signup(username_input, password_input):
+                    if not username_input or not password_input:
+                        return gr.update(value="Username and password cannot be empty."), None, None
                     users = load_users()
-                    if username_input not in users:
-                        users[username_input] = {"password": password_input, "chats": []}
-                        save_users(users)
-                        return gr.update(value="Sign up successful! Please log in."), username_input, password_input
-                    return gr.update(value="Username already exists!"), None, None
+                    if username_input in users:
+                        return gr.update(value="Username already exists!"), None, None
+                    users[username_input] = {"password": password_input, "chats": []}
+                    save_users(users)
+                    return gr.update(value="Sign up successful! Please log in."), username_input, password_input
 
                 signup_btn.click(
                     fn=signup,
@@ -297,44 +265,16 @@ def create_interface():
                     inputs=[username, password],
                     outputs=[login_page, chat_interface, user_icon, greeting, current_user, logged_in]
                 )
-                # Submit on Arrow Button click
-                arrow_button.click(
-                    fn=chatbot_response,
-                    inputs=[current_user, ask_box, file_upload, session_id],
-                    outputs=[output, session_id]
-                ).then(
-                    fn=lambda x: gr.update(value=""),  # Clear file upload
-                    inputs=[file_upload],
-                    outputs=[file_upload]
-                ).then(
-                    fn=update_history,
-                    inputs=[current_user],
-                    outputs=[chat_list]
-                )
-                # Submit on Enter key
-                ask_box.submit(
-                    fn=chatbot_response,
-                    inputs=[current_user, ask_box, file_upload, session_id],
-                    outputs=[output, session_id]
-                ).then(
-                    fn=lambda x: gr.update(value=""),  # Clear file upload
-                    inputs=[file_upload],
-                    outputs=[file_upload]
-                ).then(
-                    fn=update_history,
-                    inputs=[current_user],
-                    outputs=[chat_list]
-                )
+                # Submit on Arrow Button or Enter
+                for event in [arrow_button.click, ask_box.submit]:
+                    event(
+                        fn=chatbot_response,
+                        inputs=[current_user, ask_box, session_id],
+                        outputs=[output, session_id, chat_history]
+                    )
 
     return iface
 
 if __name__ == "__main__":
     iface = create_interface()
-    # Launch and capture the URLs
-    with open("gradio_url.txt", "w") as f:
-        # Redirect Gradio output to the file
-        import sys
-        original_stdout = sys.stdout
-        sys.stdout = f
-        iface.launch(server_port=7860, share=True)
-        sys.stdout = original_stdout
+    iface.launch()
